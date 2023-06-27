@@ -1,176 +1,178 @@
-import random;
-import concurrent.futures;
-import threading;
-import soundfile as sf
+import random
+import concurrent.futures
+import threading
 import numpy as np
+import soundfile as sf
 
-# Caminho para o arquivo WAV
-audio_file = 'C:/Users/Marcos/Documents/labs/TrabCDA/trab2/cenario2/audio/ruido.wav'
+class Catraca(threading.Thread):
+    def __init__(self, key):
+        super().__init__()
+        self.torcedores = None
+        self.torcedores_casa = None
+        self.torcedores_rival = None
+        self.key = key
 
-# Carregar o arquivo de áudio
-audio_data, sample_rate = sf.read(audio_file)
+    def run(self):
+        self.gerar_numeros()
+        self.encriptar(chave=self.key)
 
-# Convertendo o áudio para um array numérico
-audio_data = audio_data.astype(float)
+    #Complexidade O(1)
+    def gerar_numeros(self):
+        self.torcedores = random.randint(0, 1000)
+        self.torcedores_casa = random.randint(0, self.torcedores)
+        self.torcedores_rival = self.torcedores - self.torcedores_casa
 
-def gerar_numeros_audio(audio_data, num_numbers):
-    # Calcula a média dos valores absolutos dos dados de áudio
-    audio_mean = np.mean(np.abs(audio_data))
+    #Complexidade O(1)
+    def _aplicar_cifra_cesar(self, valor, chave):
+        return (valor + chave) * 1001
 
-    # Define uma semente baseada na média do áudio
-    seed = int(audio_mean * 10000000000000000000)
+    #Complexidade O(1)
+    def encriptar(self, chave):
+        self.torcedores = self._aplicar_cifra_cesar(self.torcedores, chave)
+        self.torcedores_casa = self._aplicar_cifra_cesar(self.torcedores_casa, chave)
+        self.torcedores_rival = self._aplicar_cifra_cesar(self.torcedores_rival, chave)
+   
+class CatracaManager:
+    def __init__(self, num_catracas, key):
+        self.num_catracas = num_catracas
+        self.catracas = []
+        self.key = key
 
-    # Inicializa o gerador de números pseudoaleatórios
-    random.seed(seed)
+    #complexidade O(N)
+    def criar_catracas(self):
+        for _ in range(self.num_catracas):
+            catraca = Catraca(self.key)
+            self.catracas.append(catraca)
 
-    # Gera os números aleatórios
-    random_numbers = [random.random() for _ in range(num_numbers)]
-    # Multiplica pela escala e converte para int
-    scaled_numbers = list(map(lambda x: int(x * 1000), random_numbers))  
-    # Limita os valores entre 0 e 1000
-    clipped_numbers = np.clip(scaled_numbers, 0, 1000)  
+    #complexidade O(N)
+    def gerar_numeros_catracas(self):
+        for catraca in self.catracas:
+            catraca.start()
 
-    return clipped_numbers
+        for catraca in self.catracas:
+            catraca.join()
 
-# Função de complexidade constante O(1)
-def gerar_numeros(torcedores):
-    torcedores_casa = random.randint(0, int(torcedores))
-    torcedores_rival = int(torcedores) - torcedores_casa
+    #Complexidade O(N)
+    def desencriptar(self, chave):
+        for catraca in self.catracas:
+            catraca.torcedores = self._desaplicar_cifra_cesar(catraca.torcedores, chave)
+            catraca.torcedores_casa = self._desaplicar_cifra_cesar(catraca.torcedores_casa, chave)
+            catraca.torcedores_rival = self._desaplicar_cifra_cesar(catraca.torcedores_rival, chave)
 
-    return torcedores_casa, torcedores_rival
+    #Complexidade O(1)
+    def _desaplicar_cifra_cesar(self, valor, chave):
+        return (valor // 1001) - chave
 
-# Função de complexidade constante O(1)
-def criar_catraca (a):
-    b, c = gerar_numeros(a)
-    catraca = [int(a), b, c]
+    #complexidade O(N)
+    def calcular_total(self):
+        total_torcedores = 0
+        total_casa = 0
+        total_visitante = 0
 
-    return catraca
+        for catraca in self.catracas:
+            total_torcedores += catraca.torcedores
+            total_casa += catraca.torcedores_casa
+            total_visitante += catraca.torcedores_rival
 
-# Função de complexidade constante O(1)
-def gerar_numeros_threads(num_threads):
-    numeros = gerar_numeros_audio(audio_data, num_threads)
-    catracas = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for i in range(num_threads):
-            future = executor.submit(criar_catraca, numeros[i])
-            catracas.append(future.result())
-    return catracas
+        return total_torcedores, total_casa, total_visitante
 
-# Função de complexidade linear O(N)
-def calcular_total(lista):
-    total_torcedores = 0
-    total_casa = 0
-    total_visitante = 0
+    #complexidade O(1)
+    def imprimir_total(self, total_torcedores, total_casa, total_visitante):
+        print(f"Total de torcedores: {total_torcedores}")
+        print(f"Total de torcedores do time da casa: {total_casa}")
+        print(f"Total de torcedores do time de fora: {total_visitante}")
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Define a função que será executada para cada item da lista
-        def calcular(item):
-            nonlocal total_torcedores, total_casa, total_visitante
-            total_torcedores += item[0]
-            total_casa += item[1]
-            total_visitante += item[2]
+    #complexidade O(N)
+    def imprimir_catracas(self):
+        for i, catraca in enumerate(self.catracas, start=1):
+            print(f"Catraca {i}")
+            print(f"Torcedores: {catraca.torcedores}")
+            print(f"Torcedores do time da casa: {catraca.torcedores_casa}")
+            print(f"Torcedores do time de fora: {catraca.torcedores_rival}")
 
-        # Submete a função "calcular" para ser executada em paralelo para cada item da lista
-        futures = [executor.submit(calcular, item) for item in lista]
+    #complexidade O(N^2)
+    @staticmethod
+    def organizar_ordem(lista):
+        n = len(lista)
 
-        # Aguarda a conclusão de todas as execuções
-        concurrent.futures.wait(futures)
+        for i in range(n):
+            for j in range(0, n - i - 1):
+                if lista[j] > lista[j + 1]:
+                    lista[j], lista[j + 1] = lista[j + 1], lista[j]
 
-    return total_torcedores, total_casa, total_visitante
+        return lista
 
-# Função de complexidade constante O(1)
-def imprimir_total(total_torcedores, total_casa, total_visitante):
-    print(f"Total de torcedores: {total_torcedores}")
-    print(f"Total de torcedores do time da casa: {total_casa}")
-    print(f"Total de torcedores do time de fora: {total_visitante}")
+    #complexidade O(N)
+    def imprimir_ordem_crescente(self):
+        lista_torcedores_catraca = []
+        lista_torcedores_casa = []
+        lista_torcedores_visitante = []
 
-# Função de complexidade linear O(N)
-def imprimir_catraca(lista):
-    semaforo = threading.Semaphore(1)  # cria um semáforo para controlar o acesso à seção de impressão
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Define a função que será executada para cada item da lista
-        def imprimir(item):
-            semaforo.acquire()  # aguarda acesso ao semáforo
-            print(f"Catraca {lista.index(item) + 1}")
-            print(f"Torcedores: {item[0]}")
-            print(f"Torcedores do time da casa: {item[1]}")
-            print(f"Torcedores do time de fora: {item[2]}")
-            semaforo.release()  # libera o semáforo para a próxima thread
+        for catraca in self.catracas:
+            lista_torcedores_catraca.append(catraca.torcedores)
+            lista_torcedores_casa.append(catraca.torcedores_casa)
+            lista_torcedores_visitante.append(catraca.torcedores_rival)
 
-        # Submete a função "imprimir" para ser executada em paralelo para cada item da lista
-        futures = [executor.submit(imprimir, item) for item in lista]
+        semaforo = threading.Semaphore(1)
 
-        # Aguarda a conclusão de todas as execuções
-        concurrent.futures.wait(futures)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            def organizar_e_imprimir(tipo, lista):
+                semaforo.acquire()
+                print(f"Ordem crescente do total de torcedores {tipo} por catraca: ")
+                print(self.organizar_ordem(lista))
+                semaforo.release()
 
-# Função de complexidade quadrática O(N^2)
-def organizar_ordem(lista):
-    n = len(lista)
-    
-    for i in range(n):
-        for j in range(0, n-i-1):
-            if lista[j] > lista[j+1]:
-                lista[j], lista[j+1] = lista[j+1], lista[j]
-    
-    return lista
+            futures = []
+            futures.append(executor.submit(organizar_e_imprimir, "geral", lista_torcedores_catraca))
+            futures.append(executor.submit(organizar_e_imprimir, "do time da casa", lista_torcedores_casa))
+            futures.append(executor.submit(organizar_e_imprimir, "do time visitante", lista_torcedores_visitante))
 
-# Função de complexidade linear O(N)
-def imprimir_ordem_crescente(lista):
-    lista_torcedores_catraca = []
-    lista_torcedores_casa = []
-    lista_torcedores_visitante = []
+            concurrent.futures.wait(futures)
 
-    for item in lista:
-        lista_torcedores_catraca.append(item[0])
-        lista_torcedores_casa.append(item[1])
-        lista_torcedores_visitante.append(item[2])
-
-    semaforo = threading.Semaphore(1) # cria um semáforo para controlar o acesso à seção de impressão
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Define a função que será executada para cada lista
-        def organizar_e_imprimir(tipo, lista):
-            semaforo.acquire() # aguarda acesso ao semáforo
-            print(f"Ordem crescente do total de torcedores {tipo} por catraca: ")
-            print(organizar_ordem(lista))
-            semaforo.release() # libera o semáforo para a próxima thread
-
-        # Submete a função "organizar_e_imprimir" para ser executada em paralelo para cada lista
-        futures = []
-        futures.append(executor.submit(organizar_e_imprimir, "geral", lista_torcedores_catraca))
-        futures.append(executor.submit(organizar_e_imprimir, "do time da casa", lista_torcedores_casa))
-        futures.append(executor.submit(organizar_e_imprimir, "do time visitante", lista_torcedores_visitante))
-
-        # Aguarda a conclusão de todas as execuções
-        concurrent.futures.wait(futures)
-
-# Função de complexidade exponencial O(2^N)
-def gerar_conjuntos_torcedores_casa(lista):
-    n = len(lista)
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Define a função que será executada para cada lista
+    #complexidade O(2^N)
+    def gerar_conjuntos_torcedores_casa(self):
         def gerar_combinacao(i):
             combinacao = []
-            for j in range(n):
+            for j in range(self.num_catracas):
                 if i & (1 << j):
-                    combinacao.append(lista[j][1])
+                    combinacao.append(self.catracas[j].torcedores_casa)
                 else:
                     combinacao.append("")
             return combinacao
-        # Submete a função "gerar_combinacao" para ser executada em paralelo para cada valor de i
-        futures = [executor.submit(gerar_combinacao, i) for i in range(2**n)]
 
-        # Aguarda a conclusão de todas as execuções e adiciona as combinações geradas à lista "combinacoes"
-        combinacoes = [f.result() for f in concurrent.futures.as_completed(futures)]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(gerar_combinacao, i) for i in range(2 ** self.num_catracas)]
+            combinacoes = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-    print(combinacoes)
+        print(combinacoes)
+
 
 if __name__ == '__main__':
-    lista_geral = gerar_numeros_threads(10)
-    
-    total_torcedores, total_casa, total_visitante = calcular_total(lista_geral)
-    imprimir_total(total_torcedores, total_casa, total_visitante)
-    imprimir_catraca(lista_geral)
-    imprimir_ordem_crescente(lista_geral)
-    gerar_conjuntos_torcedores_casa(lista_geral)
+    # Caminho para o arquivo WAV
+    audio_file = 'C:/Users/Marcos/Documents/labs/TrabCDA/trab2/cenario2/audio/ruido.wav'
+
+    # Carregar o arquivo de áudio
+    audio_data, sample_rate = sf.read(audio_file)
+
+    # Convertendo o áudio para um array numérico
+    audio_data = audio_data.astype(float)
+
+    # Calcula a média dos valores absolutos dos dados de áudio
+    audio_mean = np.mean(np.abs(audio_data))
+
+    # Define uma chave baseada na média do áudio
+    key = int(audio_mean * 1000)
+
+    manager = CatracaManager(10, key)
+
+    manager.criar_catracas()
+    manager.gerar_numeros_catracas()
+
+    # Desencriptar os valores antes de realizar outras operações
+    manager.desencriptar(key)
+
+    total_torcedores, total_casa, total_visitante = manager.calcular_total()
+    manager.imprimir_total(total_torcedores, total_casa, total_visitante)
+    manager.imprimir_catracas()
+    manager.imprimir_ordem_crescente()
+    manager.gerar_conjuntos_torcedores_casa()
